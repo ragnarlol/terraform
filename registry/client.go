@@ -294,7 +294,63 @@ func (c *Client) TerraformProviderVersions(provider *regsrc.TerraformProvider) (
 }
 
 // TerraformProviderDownload queries the registry for a provider download metadata
-func (c *Client) TerraformProviderDownload(provider *regsrc.TerraformProvider) (*response.TerraformProviderPlatformDownload, error) {
-	// not yet implemented
-	return nil, nil
+func (c *Client) TerraformProviderDownload(provider *regsrc.TerraformProvider, version string) (*response.TerraformProviderPlatformDownload, error) {
+	host, err := provider.SvcHost()
+	if err != nil {
+		return nil, err
+	}
+
+	service := c.Discover(host, providersServiceID)
+	if service == nil {
+		return nil, fmt.Errorf("host %s does not provide Terraform providers", host.ForDisplay())
+	}
+
+	var p *url.URL
+	p, err = url.Parse(path.Join(
+		provider.TerraformProvider(),
+		version,
+		"download",
+		provider.OS,
+		provider.Arch,
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	download := service.ResolveReference(p)
+
+	log.Printf("[DEBUG] looking up provider location from %q", download)
+
+	req, err := http.NewRequest("GET", download.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	c.addRequestCreds(host, req)
+	req.Header.Set(xTerraformVersion, tfVersion)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var pd response.TerraformProviderPlatformDownload
+
+	dec := json.NewDecoder(resp.Body)
+	if err := dec.Decode(&pd); err != nil {
+		return nil, err
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusNoContent:
+		// OK
+	case http.StatusNotFound:
+		return nil, fmt.Errorf("provider %q version %q not found", provider.TerraformProvider(), version)
+	default:
+		// anything else is an error:
+		return nil, fmt.Errorf("error getting download location for %q: %s", provider.TerraformProvider(), resp.Status)
+	}
+
+	return &pd, nil
 }

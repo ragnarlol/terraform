@@ -2,6 +2,7 @@ package regsrc
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/hashicorp/terraform/svchost"
 )
@@ -16,20 +17,32 @@ var (
 	DefaultProviderNamespace = "terraform-providers"
 )
 
-// Provider describes a Terraform Registry Provider source.
+// TerraformProvider describes a Terraform Registry Provider source.
 type TerraformProvider struct {
 	RawHost      *FriendlyHost
 	RawNamespace string
 	RawName      string
+	OS           string
+	Arch         string
 }
 
-// NewProvider constructs a new provider source.
-func NewTerraformProvider(name string) (*TerraformProvider, error) {
+// NewTerraformProvider constructs a new provider source.
+func NewTerraformProvider(name, os, arch string) (*TerraformProvider, error) {
+	if os == "" {
+		os = runtime.GOOS
+	}
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
+
 	p := &TerraformProvider{
 		RawHost:      PublicRegistryHost,
 		RawNamespace: DefaultProviderNamespace,
 		RawName:      name,
+		OS:           os,
+		Arch:         arch,
 	}
+
 	return p, nil
 }
 

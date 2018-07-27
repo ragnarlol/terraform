@@ -48,14 +48,8 @@ type testMod struct {
 // Only one version for now, as we only lookup latest from the registry.
 type testProvider struct {
 	version string
-}
-
-type testProviderVersion struct {
-	name                string
-	version             string
-	downloadURL         string
-	shasumsSignatureURL string
-	shasumsURL          string
+	os      string
+	arch    string
 }
 
 const (
@@ -106,22 +100,21 @@ var testMods = map[string][]testMod{
 
 var testProviders = map[string][]testProvider{
 	"terraform-providers/foo": {
-		{version: "0.2.3"},
-		{version: "0.3.0"},
+		{
+			version: "0.2.3",
+			os:      "linux",
+			arch:    "amd64",
+		},
+		{
+			version: "0.3.0",
+			os:      "darwin",
+			arch:    "amd64",
+		},
 	},
 	"terraform-providers/bar": {
 		{version: "0.1.1"},
 		{version: "0.1.2"},
 	},
-}
-
-var testProviderVersions = map[string][]testProviderVersion{
-	"terraform-providers/foo": {{
-		downloadURL:         "file:///download/terraform-provider-null/1.0.0/terraform-provider-null_1.0.0/terraform-provider-null_1.0.0_linux_amd64.zip",
-		version:             "0.2.3",
-		shasumsSignatureURL: "terraform-provider-foo/1.0.0/terraform-provider-foo_1.0.0_SHA256SUMS.sig",
-		shasumsURL:          "terraform-provider-foo/1.0.0/terraform-provider-foo_1.0.0_SHA256SUMS",
-	}},
 }
 
 func latestVersion(versions []string) string {
@@ -245,7 +238,9 @@ func mockRegHandler() http.Handler {
 		})),
 	)
 
-	providerDownload := func(w http.ResponseWriter, r *http.Request) {}
+	providerDownload := func(w http.ResponseWriter, r *http.Request) {
+
+	}
 
 	providerVersions := func(w http.ResponseWriter, r *http.Request) {
 
@@ -299,7 +294,7 @@ func mockRegHandler() http.Handler {
 
 	mux.Handle("/v1/providers/",
 		http.StripPrefix("/v1/providers/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasSuffix(r.URL.Path, "/download") {
+			if strings.Contains(r.URL.Path, "/download") {
 				providerDownload(w, r)
 				return
 			}
